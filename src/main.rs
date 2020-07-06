@@ -16,7 +16,8 @@ pub struct CreateStatement {
 #[derive(Debug, Clone)]
 pub struct Column {
     field: String,
-    v: Vec<Token>,
+    sqltype: String,
+    qualifiers: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,7 +40,6 @@ fn make_statement(toks: &[Token]) -> Vec<StatementTokens> {
         match tok {
             Token::Whitespace(_) => {}
             Token::SemiColon => {
-                //println!("end");
                 let mut swapped = Vec::new();
                 std::mem::swap(&mut swapped, &mut stmt);
                 if swapped.len() > 0 {
@@ -75,7 +75,7 @@ where
         match it.peek() {
             None => break,
             Some(&Token::RParen) if level == 0 => break,
-            Some(&Token::Comma) => break,
+            Some(&Token::Comma) if level == 0 => break,
             Some(t) => {
                 if t == &&Token::RParen {
                     level -= 1;
@@ -96,10 +96,36 @@ fn parse_column(w: &Word, c: Vec<Token>) -> Result<Option<Column>, Error> {
         "KEY" => Ok(None),
         "CONSTRAINT" => Ok(None),
         "UNIQUE" => Ok(None),
-        other => Ok(Some(Column {
-            field: other.to_string(),
-            v: c,
-        })),
+        other => {
+            let (ty, next) = {
+                if let Token::Word(w) = &c[0] {
+                    if c.len() > 3 && Token::LParen == c[1] && Token::RParen == c[3] {
+                        (w.value.clone(), 4)
+                    } else {
+                        (w.value.clone(), 1)
+                    }
+                } else {
+                    return Err(Error(format!(
+                        "unknown token while parsing column type {:?}",
+                        c[0]
+                    )));
+                }
+            };
+            let constraints = c[next..]
+                .iter()
+                .filter_map(|t| match t {
+                    Token::Word(w) => Some(w.value.clone()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+
+            // return
+            Ok(Some(Column {
+                field: other.to_string(),
+                sqltype: ty,
+                qualifiers: constraints,
+            }))
+        }
     }
 }
 
@@ -207,5 +233,4 @@ fn main() {
     };
 
     p(&dialect, &contents);
-
 }
