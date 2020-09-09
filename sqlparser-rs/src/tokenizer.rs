@@ -251,6 +251,7 @@ impl<'a> Tokenizer<'a> {
         let mut tokens: Vec<Token> = vec![];
 
         while let Some(token) = self.next_token(&mut peekable)? {
+            //println!("tok: {:?}", token);
             match &token {
                 Token::Whitespace(Whitespace::Newline) => {
                     self.line += 1;
@@ -468,6 +469,17 @@ impl<'a> Tokenizer<'a> {
             match ch {
                 '\'' => {
                     chars.next(); // consume
+                    return Ok(s)
+                    }
+                '\\' => {
+                    chars.next(); // consume
+                    match chars.peek() {
+                        Some('\'') => { s.push('\''); chars.next(); }
+                        Some('\"') => { s.push('"'); chars.next(); }
+                        Some('\\') => { s.push('\\'); chars.next(); }
+                        x => { panic!("issue in escape {:?}", x) }
+                    }
+/*
                     let escaped_quote = chars.peek().map(|c| *c == '\'').unwrap_or(false);
                     if escaped_quote {
                         s.push('\'');
@@ -475,6 +487,7 @@ impl<'a> Tokenizer<'a> {
                     } else {
                         return Ok(s);
                     }
+*/
                 }
                 _ => {
                     chars.next(); // consume
