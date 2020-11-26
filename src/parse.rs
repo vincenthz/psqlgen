@@ -172,6 +172,7 @@ pub enum Constraint {
     Unsigned,
     AutoIncrement,
     CharacterSet(String),
+    Comment(String),
     #[allow(dead_code)]
     Collate(String),
 }
@@ -378,6 +379,15 @@ fn parse_constraints(toks: &[Token]) -> Vec<Constraint> {
                         panic!("COLLATE not followed by word")
                     }
                 }
+                "COMMENT" => match &toks[start + 1] {
+                    Token::SingleQuotedString(s) => {
+                        constraints.push(Constraint::Comment(s.clone()));
+                        start += 2
+                    }
+                    w => {
+                        panic!("unknown token after comment: {} => {:?}", w, toks)
+                    }
+                },
                 "AUTO_INCREMENT" => {
                     constraints.push(Constraint::AutoIncrement);
                     start += 1
