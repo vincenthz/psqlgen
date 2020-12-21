@@ -238,7 +238,7 @@ pub fn parse(xcontents: String) -> Relation {
             continue;
         } else if l.starts_with("[") && l.ends_with("]") {
             if let Some(section_name) = section_name {
-                println!(" {} {}", section_name, section.len());
+                //println!(" {} {}", section_name, section.len());
                 sections.insert(section_name, section);
                 section = Vec::new();
             }

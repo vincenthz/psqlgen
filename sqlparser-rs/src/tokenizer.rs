@@ -476,6 +476,7 @@ impl<'a> Tokenizer<'a> {
                     match chars.peek() {
                         Some('\'') => { s.push('\''); chars.next(); }
                         Some('\"') => { s.push('"'); chars.next(); }
+                        Some('n') => { s.push('\n'); chars.next(); }
                         Some('\\') => { s.push('\\'); chars.next(); }
                         x => { panic!("issue in escape {:?}", x) }
                     }

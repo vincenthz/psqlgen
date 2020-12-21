@@ -284,7 +284,7 @@ fn dot_create_tables(state: Option<extra::Relation>, stmts: &[CreateStatement]) 
     let er = state.unwrap_or_else(|| extra::Relation::new());
 
     println!("digraph {{");
-    println!("    graph [pad=\"0.5\", nodesep=\"0.5\", ranksep=\"2\"];");
+    println!("    graph [pad=\"0.5\", nodesep=\"0.5\", ranksep=\"2\", bgcolor=black];");
     println!("    node [shape=plain]");
     println!("    rankdir=LR;");
 
