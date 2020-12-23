@@ -46,6 +46,9 @@ fn main() {
     const ARG_KNEX: &str = "knex";
     const ARG_DIESEL: &str = "diesel";
     const ARG_DOT: &str = "dot";
+    const ARG_TABLES: &str = "tables";
+    const ARG_TABLES_NAME: &str = "tables-name";
+    const ARG_TABLE_FILTER: &str = "table-filter";
     const ARG_DEBUG: &str = "debug";
     const ARG_SCHEMA: &str = "schema";
     const ARG_EXTRA: &str = "extra";
@@ -79,6 +82,27 @@ fn main() {
                 .takes_value(false),
         )
         .arg(
+            Arg::with_name(ARG_TABLES_NAME)
+                .long("table-name")
+                .help("output just tables name")
+                .takes_value(false),
+        )
+        .arg(
+            Arg::with_name(ARG_TABLES)
+                .long("tables")
+                .help("output tables and content in tabular format")
+                .required(false)
+                .takes_value(false),
+        )
+        .arg(
+            Arg::with_name(ARG_TABLE_FILTER)
+                .long("table-filter")
+                .help("only output tables in the filter")
+                .required(false)
+                .multiple(true)
+                .takes_value(true),
+        )
+        .arg(
             Arg::with_name(ARG_CHECK_INTEGRITY)
                 .long("check-integrity")
                 .help("check-integrity")
@@ -104,10 +128,15 @@ fn main() {
     let matches = app.get_matches();
     let schema_file = matches.value_of(ARG_SCHEMA).expect("missing a schema file");
     let extra_file = matches.value_of(ARG_EXTRA);
+
     let output_knex = matches.is_present(ARG_KNEX);
     let output_diesel = matches.is_present(ARG_DIESEL);
     let output_dot = matches.is_present(ARG_DOT);
     let output_debug = matches.is_present(ARG_DEBUG);
+    let output_tables = matches.is_present(ARG_TABLES);
+    let output_tables_name = matches.is_present(ARG_TABLES_NAME);
+
+    let tables_filter = matches.values_of(ARG_TABLE_FILTER);
     let check_integrity = matches.is_present(ARG_CHECK_INTEGRITY);
 
     let dialect = MySqlDialect {}; // or AnsiDialect
@@ -133,6 +162,13 @@ fn main() {
             OutputType::Knex
         } else if output_dot {
             OutputType::Dot
+        } else if output_tables {
+            match tables_filter {
+                None => OutputType::Tables(output_tables_name, vec![]),
+                Some(t) => {
+                    OutputType::Tables(output_tables_name, t.map(|s| s.to_string()).collect())
+                }
+            }
         } else {
             panic!("no output type selected")
         };
@@ -146,6 +182,14 @@ fn main() {
             })
             .collect::<Vec<_>>();
 
-        output_create(output, extra_state, &creates[..]);
+        let inserts = stmts
+            .iter()
+            .filter_map(|m| match m {
+                Some(Statement::Insert(s)) => Some(s.clone()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        output_create(output, extra_state, &creates[..], &inserts);
     }
 }

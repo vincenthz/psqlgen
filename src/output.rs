@@ -1,15 +1,18 @@
 use crate::buffer::Buffer;
 use crate::extra::{self, ForeignRelation};
-use crate::parse::{Column, Constraint, CreateStatement, Meta, SqlParam, SqlTy};
+use crate::parse::{
+    Column, Constraint, CreateStatement, InsertStatement, Meta, SqlParam, SqlTy, SqlValue,
+};
 use convert_case::{Case, Casing};
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum OutputType {
     Debug,
     Knex,
     Diesel,
     Dot,
+    Tables(bool, Vec<String>),
 }
 
 fn print_enum_params(ps: &[SqlParam]) -> String {
@@ -381,10 +384,77 @@ fn dot_create_tables(state: Option<extra::Relation>, stmts: &[CreateStatement]) 
     println!("}}")
 }
 
+fn show_tables(
+    only_table_name: bool,
+    filter_table_names: &[String],
+    stmts: &[CreateStatement],
+    istmts: &[InsertStatement],
+) {
+    use prettytable::{color, format, Attr, Cell, Row, Table};
+
+    const TO_HIDE: [&str; 6] = [
+        "create_date",
+        "update_date",
+        "created_by_user_id",
+        "deleted_by_user_id",
+        "updated_by_user_id",
+        "delete_flag",
+    ];
+
+    for c in stmts {
+        if !filter_table_names.is_empty() && !filter_table_names.contains(&c.table_name) {
+            continue;
+        }
+
+        let mut table = Table::new();
+        table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+
+        println!("## {}", c.table_name);
+
+        if only_table_name {
+            continue;
+        }
+
+        let mut row = Vec::new();
+
+        let mut hide_column_indexes = Vec::new();
+        for (i, col) in c.columns.iter().enumerate() {
+            if TO_HIDE.contains(&col.field.as_str()) {
+                hide_column_indexes.push(i);
+                continue;
+            }
+            row.push(
+                Cell::new(&col.field)
+                    .with_style(Attr::Bold)
+                    .with_style(Attr::ForegroundColor(color::GREEN)),
+            );
+        }
+        table.add_row(Row::new(row));
+
+        let mut is: Vec<Vec<SqlValue>> = Vec::new();
+        for i in istmts.iter().filter(|i| i.table_name == c.table_name) {
+            is.extend(i.rows.iter().cloned())
+        }
+
+        for row in is.iter() {
+            let mut trow = Vec::new();
+            for (i, value) in row.iter().enumerate() {
+                if hide_column_indexes.contains(&i) {
+                    continue;
+                }
+                trow.push(Cell::new(&format!("{}", value.to_display_string())));
+            }
+            table.add_row(Row::new(trow));
+        }
+        table.printstd();
+    }
+}
+
 pub fn output_create(
     output: OutputType,
     extra_relation: Option<extra::Relation>,
     stmts: &[CreateStatement],
+    istmts: &[InsertStatement],
 ) {
     match output {
         OutputType::Knex => knex_create_tables(stmts),
@@ -393,5 +463,8 @@ pub fn output_create(
         }
         OutputType::Debug => print_create_tables(stmts),
         OutputType::Dot => dot_create_tables(extra_relation, stmts),
+        OutputType::Tables(only_table_name, tables) => {
+            show_tables(only_table_name, &tables, stmts, istmts)
+        }
     }
 }

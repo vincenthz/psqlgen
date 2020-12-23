@@ -212,6 +212,15 @@ impl SqlValue {
             _ => false,
         }
     }
+
+    pub fn to_display_string(&self) -> String {
+        match self {
+            SqlValue::Number(s) => s.clone(),
+            SqlValue::SQuoteString(s) => s.clone(),
+            SqlValue::Null => "NULL".to_string(),
+            SqlValue::FctCallVoid(s) => "???".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
