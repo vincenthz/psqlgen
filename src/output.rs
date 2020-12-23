@@ -6,6 +6,15 @@ use crate::parse::{
 use convert_case::{Case, Casing};
 use std::collections::{HashMap, HashSet};
 
+const TO_HIDE: [&str; 6] = [
+    "create_date",
+    "update_date",
+    "created_by_user_id",
+    "deleted_by_user_id",
+    "updated_by_user_id",
+    "delete_flag",
+];
+
 #[derive(Debug, Clone)]
 pub enum OutputType {
     Debug,
@@ -305,7 +314,12 @@ fn dot_create_tables(state: Option<extra::Relation>, stmts: &[CreateStatement]) 
             "    <tr bgcolor=\"{}\"><td><i><font color=\"{}\">{}</font></i></td></tr>",
             title_bg_color, title_color, stmt.table_name
         );
-        for (_, col) in stmt.columns.iter().enumerate() {
+        for (_, col) in stmt
+            .columns
+            .iter()
+            .filter(|c| !TO_HIDE.contains(&c.field.as_str()))
+            .enumerate()
+        {
             println!(
                 "<tr><td port=\"{}\"><font color=\"{}\">{}: {:?}</font></td></tr>",
                 col.field, font_color, col.field, col.sqltype
@@ -316,6 +330,7 @@ fn dot_create_tables(state: Option<extra::Relation>, stmts: &[CreateStatement]) 
         let fields = stmt
             .columns
             .iter()
+            .filter(|c| !TO_HIDE.contains(&c.field.as_str()))
             .map(|c| c.field.clone())
             .collect::<std::collections::HashSet<_>>();
         tables.insert(stmt.table_name.clone(), fields);
@@ -391,15 +406,6 @@ fn show_tables(
     istmts: &[InsertStatement],
 ) {
     use prettytable::{color, format, Attr, Cell, Row, Table};
-
-    const TO_HIDE: [&str; 6] = [
-        "create_date",
-        "update_date",
-        "created_by_user_id",
-        "deleted_by_user_id",
-        "updated_by_user_id",
-        "delete_flag",
-    ];
 
     for c in stmts {
         if !filter_table_names.is_empty() && !filter_table_names.contains(&c.table_name) {
