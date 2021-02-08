@@ -46,6 +46,7 @@ fn main() {
     const ARG_KNEX: &str = "knex";
     const ARG_DIESEL: &str = "diesel";
     const ARG_DOT: &str = "dot";
+    const ARG_NODATA: &str = "no-data";
     const ARG_TABLES: &str = "tables";
     const ARG_TABLES_NAME: &str = "tables-name";
     const ARG_TABLE_FILTER: &str = "table-filter";
@@ -79,6 +80,12 @@ fn main() {
             Arg::with_name(ARG_DEBUG)
                 .long("debug")
                 .help("output debug stuff")
+                .takes_value(false),
+        )
+        .arg(
+            Arg::with_name(ARG_NODATA)
+                .long("no-data")
+                .help("filter away all values (INSERTs) when parsing SQL file")
                 .takes_value(false),
         )
         .arg(
@@ -129,6 +136,8 @@ fn main() {
     let schema_file = matches.value_of(ARG_SCHEMA).expect("missing a schema file");
     let extra_file = matches.value_of(ARG_EXTRA);
 
+    let nodata = matches.is_present(ARG_NODATA);
+
     let output_knex = matches.is_present(ARG_KNEX);
     let output_diesel = matches.is_present(ARG_DIESEL);
     let output_dot = matches.is_present(ARG_DOT);
@@ -151,29 +160,33 @@ fn main() {
     };
 
     if check_integrity {
-        let stmts = parse(&dialect, &contents);
+        let stmts = parse(&dialect, &contents, !nodata);
         integrity::integrity(stmts, extra_state)
     } else {
-        let output = if output_debug {
-            OutputType::Debug
+        let (output, cares_about_data) = if output_debug {
+            (OutputType::Debug, true)
         } else if output_diesel {
-            OutputType::Diesel
+            (OutputType::Diesel, false)
         } else if output_knex {
-            OutputType::Knex
+            (OutputType::Knex, false)
         } else if output_dot {
-            OutputType::Dot
+            (OutputType::Dot, false)
         } else if output_tables {
             match tables_filter {
-                None => OutputType::Tables(output_tables_name, vec![]),
-                Some(t) => {
-                    OutputType::Tables(output_tables_name, t.map(|s| s.to_string()).collect())
-                }
+                None => (OutputType::Tables(output_tables_name, vec![]), true),
+                Some(t) => (
+                    OutputType::Tables(output_tables_name, t.map(|s| s.to_string()).collect()),
+                    true,
+                ),
             }
         } else {
             panic!("no output type selected")
         };
 
-        let stmts = parse(&dialect, &contents);
+        // parses data only if the output mode cares about the data AND that we haven't turn off data parsing
+        let parse_data = cares_about_data && !nodata;
+
+        let stmts = parse(&dialect, &contents, parse_data);
         let creates = stmts
             .iter()
             .filter_map(|m| match m {

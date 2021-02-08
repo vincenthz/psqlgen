@@ -716,7 +716,7 @@ where
     })
 }
 
-fn parse_statement(stmt: &StatementTokens) -> Option<Statement> {
+fn parse_statement(stmt: &StatementTokens, parse_data: bool) -> Option<Statement> {
     let mut it = stmt.iter().peekable();
 
     match word(&mut it) {
@@ -728,13 +728,14 @@ fn parse_statement(stmt: &StatementTokens) -> Option<Statement> {
                 }
                 Ok(c) => Some(c),
             },
-            "INSERT" => match parse_insert(&mut it).map(Statement::Insert) {
+            "INSERT" if parse_data => match parse_insert(&mut it).map(Statement::Insert) {
                 Err(e) => {
                     println!("during INSERT: {:?}", e);
                     None
                 }
                 Ok(c) => Some(c),
             },
+            "INSERT" if !parse_data => None,
             _v => {
                 //Some(Statement::Other())
                 //println!("statement: unknown start: {}", v);
@@ -745,7 +746,7 @@ fn parse_statement(stmt: &StatementTokens) -> Option<Statement> {
     }
 }
 
-pub fn parse<D: Dialect>(dialect: &D, sql: &str) -> Vec<Option<Statement>> {
+pub fn parse<D: Dialect>(dialect: &D, sql: &str, parse_data: bool) -> Vec<Option<Statement>> {
     let mut tokenizer = Tokenizer::new(dialect, &sql);
     let tokens = tokenizer.tokenize().expect("token failed");
 
@@ -753,6 +754,6 @@ pub fn parse<D: Dialect>(dialect: &D, sql: &str) -> Vec<Option<Statement>> {
 
     stmts
         .iter()
-        .map(|stmt| parse_statement(&stmt))
+        .map(|stmt| parse_statement(&stmt, parse_data))
         .collect::<Vec<_>>()
 }
